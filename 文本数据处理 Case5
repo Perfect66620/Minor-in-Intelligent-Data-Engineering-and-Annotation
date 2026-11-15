@@ -1,0 +1,110 @@
+
+# 导入所需库
+import jieba
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# 1. 创建5个中文句子
+sentences = [
+    "我喜欢学习Python编程",
+    "Python编程可以用于数据分析",
+    "我正在学习数据分析",
+    "人工智能需要大量数据",
+    "我喜欢人工智能和Python"
+]
+
+# 2. 使用jieba进行中文分词
+words_list = [list(jieba.cut(s)) for s in sentences]
+
+print("一、分词结果")
+for i, words in enumerate(words_list):
+    print(f"句子{i+1}：{words}")
+
+# 3. 构建词表
+vocab = sorted(set(word for words in words_list for word in words))
+print("\n二、词表")
+print(vocab)
+print("词表大小：", len(vocab))
+
+# 4. One-Hot编码
+# 每个词用一个向量表示，只有对应位置为1
+print("\n三、One-Hot向量")
+one_hot = np.eye(len(vocab), dtype=int)
+
+one_hot_df = pd.DataFrame(
+    one_hot, index=vocab, columns=vocab
+)
+print(one_hot_df)
+
+# 5. 将分词结果转换成空格分隔的文本
+texts = [" ".join(words) for words in words_list]
+
+# 6. CountVectorizer生成词袋矩阵
+vectorizer = CountVectorizer(
+    vocabulary=vocab,
+    token_pattern=r"(?u)\b\w+\b"
+)
+bow_matrix = vectorizer.fit_transform(texts).toarray()
+
+print("\n四、词袋矩阵（CountVectorizer）")
+bow_df = pd.DataFrame(bow_matrix, columns=vocab)
+print(bow_df)
+
+# 7. 对比One-Hot与词袋模型
+print("\n五、One-Hot与词袋模型对比")
+print("One-Hot：每个词对应一个向量，表示词的位置")
+print("词袋模型：每个句子对应一个向量，表示词出现的次数")
+
+# 8. 使用TfidfVectorizer生成TF-IDF向量
+tfidf_vectorizer = TfidfVectorizer(
+    vocabulary=vocab,
+    token_pattern=r"(?u)\b\w+\b"
+)
+tfidf_matrix = tfidf_vectorizer.fit_transform(texts).toarray()
+
+print("\n六、TF-IDF矩阵")
+tfidf_df = pd.DataFrame(
+    tfidf_matrix, columns=vocab
+)
+print(tfidf_df.round(3))
+
+# 9. 计算5×5余弦相似度矩阵
+similarity_matrix = cosine_similarity(tfidf_matrix)
+
+print("\n七、余弦相似度矩阵")
+similarity_df = pd.DataFrame(
+    similarity_matrix,
+    index=[f"句子{i+1}" for i in range(5)],
+    columns=[f"句子{i+1}" for i in range(5)]
+)
+print(similarity_df.round(3))
+
+# 10. 使用seaborn绘制热力图
+plt.figure(figsize=(8, 6))
+
+# 设置中文字体（根据系统自动选择）
+plt.rcParams["font.sans-serif"] = [
+    "PingFang SC", "Microsoft YaHei", "SimHei", "Arial Unicode MS"
+]
+plt.rcParams["axes.unicode_minus"] = False
+
+sns.heatmap(
+    similarity_df,
+    annot=True,
+    fmt=".2f",
+    cmap="Blues",
+    vmin=0,
+    vmax=1,
+    square=True
+)
+
+plt.title("5个句子的TF-IDF余弦相似度热力图")
+plt.xlabel("句子")
+plt.ylabel("句子")
+plt.tight_layout()
+plt.show()
